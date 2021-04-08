@@ -7,6 +7,8 @@ from Aggregator import MeanAggregator, AttnAggregator, RGCNAggregator
 from Transformer import make_model
 from utils import *
 import time
+
+
 def tensor_add(tensor):
     tensor_result = []
     tensor = tensor.cuda()
@@ -34,13 +36,19 @@ class TransformerHidden(nn.Module):
         self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
         self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
 
+
     def forward(self, src):
         target_list = []
         all_tensor = self.transformer_encoder(src)
+        batch_size = all_tensor.shape[0]
+        number = all_tensor.shape[1]
+        self.attention = nn.Softmax(dim=2)
+        self.v = self.attention(nn.Parameter(torch.Tensor(batch_size, 1, number)))
 
-        for i in range(src.shape[0]):
-            target_vector = all_tensor[i][-1]
-            target_list.append(target_vector.unsqueeze(0))
+        attention_result = torch.matmul(self.v, all_tensor)
+
+        for i in range(attention_result.shape[0]):
+            target_list.append(attention_result[i])
         final_result = torch.cat(target_list, dim=0)
         return self.linear(final_result).unsqueeze(0)
 
@@ -66,19 +74,19 @@ class RENet(nn.Module):
         # 是否可以考虑换成Transformer
         # self.encoder = nn.GRU(4 * h_dim, h_dim, batch_first=True)
         # self.encoder_r = nn.GRU(3 * h_dim, h_dim, batch_first=True)
-        self.transformer_hidden = TransformerHidden(d_model=4*h_dim,nhead=10,target_size=h_dim)
-        self.transformer_hidden_r  = TransformerHidden(d_model=3*h_dim,nhead=10,target_size=h_dim)
-        self.encoder = nn.GRU(4*h_dim,h_dim,batch_first=True)
-        self.encoder_r = nn.GRU(3*h_dim,h_dim,batch_first=True)
-        self.transformer = make_model(4 * h_dim, 4*h_dim,h_dim)
-        self.transformer_r = make_model(3 * h_dim, 3*h_dim,h_dim)
-        self.transformer_2 = make_model(10 * 4*h_dim, 10 * 4 * h_dim, h_dim)
-        self.transformer_2_r = make_model(10*3*h_dim,10*3*h_dim,h_dim)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=4*h_dim,nhead=8)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer,num_layers=6)
+        self.transformer_hidden = TransformerHidden(d_model=4 * h_dim, nhead=10, target_size=h_dim)
+        self.transformer_hidden_r = TransformerHidden(d_model=3 * h_dim, nhead=10, target_size=h_dim)
+        self.encoder = nn.GRU(4 * h_dim, h_dim, batch_first=True)
+        self.encoder_r = nn.GRU(3 * h_dim, h_dim, batch_first=True)
+        self.transformer = make_model(4 * h_dim, 4 * h_dim, h_dim)
+        self.transformer_r = make_model(3 * h_dim, 3 * h_dim, h_dim)
+        self.transformer_2 = make_model(10 * 4 * h_dim, 10 * 4 * h_dim, h_dim)
+        self.transformer_2_r = make_model(10 * 3 * h_dim, 10 * 3 * h_dim, h_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=4 * h_dim, nhead=8)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
 
-        encoder_layer_r = nn.TransformerEncoderLayer(d_model=3*h_dim,nhead=8)
-        self.transformer_encoder_r  = nn.TransformerEncoder(encoder_layer_r,num_layers=6)
+        encoder_layer_r = nn.TransformerEncoderLayer(d_model=3 * h_dim, nhead=8)
+        self.transformer_encoder_r = nn.TransformerEncoder(encoder_layer_r, num_layers=6)
 
         self.preds_list_s = defaultdict(lambda: torch.zeros(self.num_k))
         self.preds_ind_s = defaultdict(lambda: torch.zeros(self.num_k))
@@ -131,28 +139,26 @@ class RENet(nn.Module):
 
         hist_len = torch.LongTensor(list(map(len, hist[0]))).cuda()
         s_len, s_idx = hist_len.sort(0, descending=True)
-        s_packed_input, s_packed_input_r,length_list = self.aggregator(hist, s, r, self.ent_embeds,
-                                                           rel_embeds, graph_dict, self.global_emb,
-                                                           reverse=reverse)
+        s_packed_input, s_packed_input_r, length_list = self.aggregator(hist, s, r, self.ent_embeds,
+                                                                        rel_embeds, graph_dict, self.global_emb,
+                                                                        reverse=reverse)
         s_packed_input_mask = (s_packed_input != 0).unsqueeze(-2)
 
-#        s_transformer = self.transformer(s_packed_input, s_packed_input_mask)
+        #        s_transformer = self.transformer(s_packed_input, s_packed_input_mask)
 
-#        a1 = s_packed_input.view([s_packed_input.shape[0],-1]).unsqueeze(0)
-#        s_h = self.transformer_2(a1,(a1!=0).unsqueeze(-2))
+        #        a1 = s_packed_input.view([s_packed_input.shape[0],-1]).unsqueeze(0)
+        #        s_h = self.transformer_2(a1,(a1!=0).unsqueeze(-2))
 
-        
-#        s_transformer = self.transformer_encoder(s_packed_input)
-#        s_packed_transformer = pack_padded_sequence(s_transformer, length_list, batch_first=True)
-#        tt, s_h = self.encoder(s_packed_transformer)
-#        tt,s_h = self.encoder(s_packed_transformer)
-#        a2 = s_transformer.view([s_transformer.shape[0], -1]).unsqueeze(0)
-#        s_h = self.transformer_2(a2, (a2 != 0).unsqueeze(-2))
+        #        s_transformer = self.transformer_encoder(s_packed_input)
+        #        s_packed_transformer = pack_padded_sequence(s_transformer, length_list, batch_first=True)
+        #        tt, s_h = self.encoder(s_packed_transformer)
+        #        tt,s_h = self.encoder(s_packed_transformer)
+        #        a2 = s_transformer.view([s_transformer.shape[0], -1]).unsqueeze(0)
+        #        s_h = self.transformer_2(a2, (a2 != 0).unsqueeze(-2))
         s_h = self.transformer_hidden(s_packed_input)
         s_h = s_h.squeeze()
-        
-        
-#        s_h = s_h.squeeze()
+
+        #        s_h = s_h.squeeze()
         # s_h = s_h.squeeze()
         s_h = torch.cat((s_h, torch.zeros(len(s) - len(s_h), self.h_dim).cuda()), dim=0)
         ob_pred = self.linear(
@@ -162,18 +168,18 @@ class RENet(nn.Module):
         ###### Relations
         s_packed_input_r_mask = (s_packed_input_r != 0).unsqueeze(-2)
         s_q = self.transformer_hidden_r(s_packed_input_r)
-#        a2 = s_packed_input_r.view([s_packed_input.shape[0],-1]).unsqueeze(0)
-#        s_q = self.transformer_2_r(a2,(a2!=0).unsqueeze(-2))
-#        s_transformer_r = self.transformer_r(s_packed_input_r,s_packed_input_r_mask)
-#        s_transformer_r = self.transformer_encoder_r(s_packed_input_r)
-#        s_packed_transformer_r = pack_padded_sequence(s_transformer_r, length_list, batch_first=True)
-#        tt, s_q = self.encoder_r(s_packed_transformer_r)
-#        s_q = s_q.squeeze()
-#        tt, s_q = self.encoder_r(s_packed_transformer_r)
-#        a3 = s_transformer_r.view([s_transformer_r.shape[0], -1]).unsqueeze(0)
-#        s_q = self.transformer_2(a3, (a3 != 0).unsqueeze(-2))
+        #        a2 = s_packed_input_r.view([s_packed_input.shape[0],-1]).unsqueeze(0)
+        #        s_q = self.transformer_2_r(a2,(a2!=0).unsqueeze(-2))
+        #        s_transformer_r = self.transformer_r(s_packed_input_r,s_packed_input_r_mask)
+        #        s_transformer_r = self.transformer_encoder_r(s_packed_input_r)
+        #        s_packed_transformer_r = pack_padded_sequence(s_transformer_r, length_list, batch_first=True)
+        #        tt, s_q = self.encoder_r(s_packed_transformer_r)
+        #        s_q = s_q.squeeze()
+        #        tt, s_q = self.encoder_r(s_packed_transformer_r)
+        #        a3 = s_transformer_r.view([s_transformer_r.shape[0], -1]).unsqueeze(0)
+        #        s_q = self.transformer_2(a3, (a3 != 0).unsqueeze(-2))
         s_q = s_q.squeeze()
-        
+
         s_q = torch.cat((s_q, torch.zeros(len(s) - len(s_q), self.h_dim).cuda()), dim=0)
 
         ob_pred_r = self.linear_r(
@@ -523,4 +529,3 @@ class RENet(nn.Module):
 
                     s_his_cache = torch.cat((s_his_cache, forward), dim=0)
         return s_his_cache
-
