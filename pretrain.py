@@ -20,7 +20,7 @@ import pickle
 BERT_SERVER = {
     "ip": "wx.ringdata.net",  # 运行bert-as-service服务端的服务器IP，建议按照之前的文档部署GPU服务,
     "port": 15555,
-    "port_out": 15556,
+    "port_out": 15556
     # "timeout": 1000000000
 }
 
@@ -31,6 +31,7 @@ def train(args):
     bc = BertClient(**BERT_SERVER)
     vector_list = bc.encode(entity_list)
     entity_tensor = torch.Tensor(vector_list).cuda()
+    
 
     train_data, train_times_origin = utils.load_quadruples('./data/' + args.dataset, 'train.txt')
 
@@ -57,7 +58,7 @@ def train(args):
         # model_graph_file_backup = 'models/' + args.dataset + 'rgcn_graph_backup.pth'
 
     print("start training...")
-    model = RENet_global(entity_tensor,
+    model = RENet_global(vector_list,
                          num_nodes,
                          args.n_hidden,
                          num_rels,
@@ -101,7 +102,7 @@ def train(args):
                 true_s = true_s.cuda()
                 true_o = true_o.cuda()
 
-            loss = model(batch_data, true_s, true_o, graph_dict)
+            loss = model(entity_tensor,batch_data, true_s, true_o, graph_dict)
             loss.backward()
             torch.nn.utils.clip_grad_norm_(model.parameters(), args.grad_norm)  # clip gradients
             optimizer.step()
@@ -109,7 +110,7 @@ def train(args):
             loss_epoch += loss.item()
 
         t3 = time.time()
-        model.global_emb = model.get_global_emb(train_times_origin, graph_dict)
+        model.global_emb = model.get_global_emb(entity_tensor,train_times_origin, graph_dict)
         print("Epoch {:04d} | Loss {:.4f} | time {:.4f}".
               format(epoch, loss_epoch / (len(train_times) / args.batch_size), t3 - t0))
         if loss_epoch < loss_small:
