@@ -33,22 +33,17 @@ class TransformerHidden(nn.Module):
         self.nhead = nhead
         self.target_size = target_size
         self.linear = nn.Linear(d_model, target_size)
-        self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
-        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
-
+        # self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
+        # self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
+        self.transformer = nn.Transformer(d_model=d_model,nhead=nhead, num_encoder_layers=12)
 
     def forward(self, src):
         target_list = []
-        all_tensor = self.transformer_encoder(src)
-        batch_size = all_tensor.shape[0]
-        number = all_tensor.shape[1]
-        self.attention = nn.Softmax(dim=2)
-        self.v = self.attention(nn.Parameter(torch.Tensor(batch_size, 1, number)))
+        all_tensor = self.transformer(src, src)
 
-        attention_result = torch.matmul(self.v, all_tensor)
-
-        for i in range(attention_result.shape[0]):
-            target_list.append(attention_result[i])
+        for i in range(src.shape[0]):
+            target_vector = all_tensor[i][-1]
+            target_list.append(target_vector.unsqueeze(0))
         final_result = torch.cat(target_list, dim=0)
         return self.linear(final_result).unsqueeze(0)
 
