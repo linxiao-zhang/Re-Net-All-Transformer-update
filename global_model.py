@@ -6,6 +6,7 @@ from Aggregator import RGCNAggregator_global
 from utils import *
 import time
 
+
 class TransformerHidden(nn.Module):
     def __init__(self, d_model, target_size, nhead):
         super(TransformerHidden, self).__init__()
@@ -13,6 +14,7 @@ class TransformerHidden(nn.Module):
         self.nhead = nhead
         self.target_size = target_size
         self.linear = nn.Linear(d_model, target_size)
+<<<<<<< HEAD
         # self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
         # self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
         self.transformer = nn.Transformer(d_model=d_model,nhead=nhead, num_encoder_layers=12)
@@ -20,6 +22,14 @@ class TransformerHidden(nn.Module):
     def forward(self, src):
         target_list = []
         all_tensor = self.transformer(src, src)
+=======
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
+
+    def forward(self, src):
+        target_list = []
+        all_tensor = self.transformer_encoder(src)
+>>>>>>> 71f917b1fef5524c476746464d43b14f35f21cdb
 
         for i in range(src.shape[0]):
             target_vector = all_tensor[i][-1]
@@ -27,8 +37,9 @@ class TransformerHidden(nn.Module):
         final_result = torch.cat(target_list, dim=0)
         return self.linear(final_result).unsqueeze(0)
 
+
 class RENet_global(nn.Module):
-    def __init__(self, in_dim, h_dim, num_rels, dropout=0, model=0, seq_len=10, num_k=10, maxpool=1):
+    def __init__(self, entity_tensor, in_dim, h_dim, num_rels, dropout=0, model=0, seq_len=10, num_k=10, maxpool=1):
         super(RENet_global, self).__init__()
         self.in_dim = in_dim
         self.h_dim = h_dim
@@ -36,8 +47,8 @@ class RENet_global(nn.Module):
         self.model = model
         self.seq_len = seq_len
         self.num_k = num_k
-
-        self.ent_embeds = nn.Parameter(torch.Tensor(in_dim, h_dim))
+        self.linear_entity = nn.Linear(768, h_dim)
+        self.ent_embeds = self.linear_entity(entity_tensor)
         nn.init.xavier_uniform_(self.ent_embeds,
                                 gain=nn.init.calculate_gain('relu'))
 
@@ -45,16 +56,14 @@ class RENet_global(nn.Module):
         self.transformer_hidden = TransformerHidden(d_model=h_dim, nhead=10, target_size=h_dim)
         # 考虑是否换成LSTM或者Transformer
         self.encoder_global = nn.GRU(h_dim, h_dim, batch_first=True)
-        encoder_layer = nn.TransformerEncoderLayer(d_model=h_dim,nhead=8)
-        self.transformer_encoder = nn.TransformerEncoder(encoder_layer,num_layers=6)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=h_dim, nhead=8)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=6)
 
         self.aggregator = RGCNAggregator_global(h_dim, dropout, in_dim, num_rels, 100, model, seq_len, maxpool)
 
         self.linear_s = nn.Linear(h_dim, in_dim)
         self.linear_o = nn.Linear(h_dim, in_dim)
         self.global_emb = None
-
-
 
     def forward(self, t_list, true_prob_s, true_prob_o, graph_dict, subject=True):
         if subject:
@@ -70,10 +79,10 @@ class RENet_global(nn.Module):
 
         packed_input = self.aggregator(sorted_t, self.ent_embeds, graph_dict, reverse=reverse)
 
-#        tt, s_q = self.encoder_global(packed_input)
-#        transformer_hidden = TransformerHidden(d_model=self.h_dim, nhead=10, target_size=self.h_dim)
-#        print("packed_input_shape")
-#        print(packed_input.shape)
+        #        tt, s_q = self.encoder_global(packed_input)
+        #        transformer_hidden = TransformerHidden(d_model=self.h_dim, nhead=10, target_size=self.h_dim)
+        #        print("packed_input_shape")
+        #        print(packed_input.shape)
         s_q = self.transformer_hidden(packed_input)
         s_q = s_q.squeeze()
         s_q = torch.cat((s_q, torch.zeros(len(t_list) - len(s_q), self.h_dim).cuda()), dim=0)
@@ -96,11 +105,9 @@ class RENet_global(nn.Module):
             global_emb[prev_t] = emb.detach_()
             prev_t = t
 
-        global_emb[t_list[-1]], _,_ = self.predict(t_list[-1] + int(time_unit), graph_dict)
+        global_emb[t_list[-1]], _, _ = self.predict(t_list[-1] + int(time_unit), graph_dict)
         global_emb[t_list[-1]].detach_()
         return global_emb
-
-
 
     """
     Prediction function in testing
@@ -121,6 +128,3 @@ class RENet_global(nn.Module):
 
     def update_global_emb(self, t, graph_dict):
         pass
-
-
-

@@ -2,6 +2,8 @@ import argparse
 import numpy as np
 import time
 import torch
+from bert_serving.client import BertClient
+
 import utils
 import os
 from global_model import RENet_global
@@ -15,9 +17,21 @@ import pickle
 # 3.GRU是否效果最好,LSTM或Transformer或基于Transformer变种是否会更好的保留所需要的信息
 # 4.图神经网络以及聚合器的优化
 
+BERT_SERVER = {
+    "ip": "wx.ringdata.net",  # 运行bert-as-service服务端的服务器IP，建议按照之前的文档部署GPU服务,
+    "port": 15555,
+    "port_out": 15556,
+    # "timeout": 1000000000
+}
+
 def train(args):
     # load data
     num_nodes, num_rels = utils.get_total_number('./data/' + args.dataset, 'stat.txt')
+    entity_list = utils.get_toatal_entity('./data/' + args.dataset, 'entity2id.txt')
+    bc = BertClient(**BERT_SERVER)
+    vector_list = bc.encode(entity_list)
+    entity_tensor = torch.Tensor(vector_list).cuda()
+
     train_data, train_times_origin = utils.load_quadruples('./data/' + args.dataset, 'train.txt')
 
     # check cuda
@@ -43,7 +57,8 @@ def train(args):
         # model_graph_file_backup = 'models/' + args.dataset + 'rgcn_graph_backup.pth'
 
     print("start training...")
-    model = RENet_global(num_nodes,
+    model = RENet_global(entity_tensor,
+                         num_nodes,
                          args.n_hidden,
                          num_rels,
                          dropout=args.dropout,

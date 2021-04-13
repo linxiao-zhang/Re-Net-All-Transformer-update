@@ -12,6 +12,14 @@ def get_total_number(inPath, fileName):
             return int(line_split[0]), int(line_split[1])
 
 
+def get_toatal_entity(inPath, fileName):
+    entity_list = []
+    with open(os.path.join(inPath, fileName), 'r') as fr:
+        for line in fr:
+            entity_list.append(line.split('\t')[0])
+    return entity_list
+
+
 def load_quadruples(inPath, fileName, fileName2=None, fileName3=None):
     with open(os.path.join(inPath, fileName), 'r') as fr:
         quadrupleList = []
@@ -52,17 +60,19 @@ def load_quadruples(inPath, fileName, fileName2=None, fileName3=None):
 
     return np.asarray(quadrupleList), np.asarray(times)
 
-def make_batch(a,b,c, n):
-    # For item i in a range that is a length of l,
-    for i in range(0, len(a), n):
-        # Create an index range for l of n items:
-        yield a[i:i+n], b[i:i+n], c[i:i+n]
 
-def make_batch2(a,b,c,d,e, n):
+def make_batch(a, b, c, n):
     # For item i in a range that is a length of l,
     for i in range(0, len(a), n):
         # Create an index range for l of n items:
-        yield a[i:i+n], b[i:i+n], c[i:i+n], d[i:i+n], e[i:i+n]
+        yield a[i:i + n], b[i:i + n], c[i:i + n]
+
+
+def make_batch2(a, b, c, d, e, n):
+    # For item i in a range that is a length of l,
+    for i in range(0, len(a), n):
+        # Create an index range for l of n items:
+        yield a[i:i + n], b[i:i + n], c[i:i + n], d[i:i + n], e[i:i + n]
 
 
 def get_big_graph(data, num_rels):
@@ -86,11 +96,13 @@ def get_big_graph(data, num_rels):
         idx += 1
     return g
 
+
 def comp_deg_norm(g):
     in_deg = g.in_degrees(range(g.number_of_nodes())).float()
     in_deg[torch.nonzero(in_deg == 0).view(-1)] = 1
     norm = 1.0 / in_deg
     return norm
+
 
 def get_data(s_hist, o_hist):
     data = None
@@ -104,13 +116,16 @@ def get_data(s_hist, o_hist):
 
     for i, o_his in enumerate(o_hist):
         if len(o_his) != 0:
-            tem = torch.cat((torch.LongTensor(o_his[:,1].cpu()).view(-1,1), torch.LongTensor(o_his[:,0].cpu()).view(-1,1), torch.LongTensor([i]).repeat(len(o_his), 1)), dim=1)
+            tem = torch.cat((torch.LongTensor(o_his[:, 1].cpu()).view(-1, 1),
+                             torch.LongTensor(o_his[:, 0].cpu()).view(-1, 1),
+                             torch.LongTensor([i]).repeat(len(o_his), 1)), dim=1)
             if data is None:
                 data = tem.cpu().numpy()
             else:
                 data = np.concatenate((data, tem.cpu().numpy()), axis=0)
     data = np.unique(data, axis=0)
     return data
+
 
 def make_subgraph(g, nodes):
     nodes = list(nodes)
@@ -124,7 +139,7 @@ def make_subgraph(g, nodes):
     sub_g.edata.update({k: g.edata[k][sub_g.parent_eid] for k in g.edata})
     sub_g.ids = {}
     norm = comp_deg_norm(sub_g)
-    sub_g.ndata['norm'] = norm.view(-1,1)
+    sub_g.ndata['norm'] = norm.view(-1, 1)
 
     node_id = sub_g.ndata['id'].view(-1).tolist()
     sub_g.ids.update(zip(node_id, list(range(sub_g.number_of_nodes()))))
@@ -137,6 +152,7 @@ def cuda(tensor):
     else:
         return tensor
 
+
 def move_dgl_to_cuda(g):
     g.ndata.update({k: cuda(g.ndata[k]) for k in g.ndata})
     g.edata.update({k: cuda(g.edata[k]) for k in g.edata})
@@ -146,6 +162,7 @@ def move_dgl_to_cuda(g):
 Get sorted s and r to make batch for RNN (sorted by length)
 '''
 
+
 def get_neighs_by_t(s_hist_sorted, s_hist_t_sorted, s_tem):
     neighs_t = defaultdict(set)
     for i, (hist, hist_t) in enumerate(zip(s_hist_sorted, s_hist_t_sorted)):
@@ -154,6 +171,7 @@ def get_neighs_by_t(s_hist_sorted, s_hist_t_sorted, s_tem):
             neighs_t[t].add(s_tem[i].item())
 
     return neighs_t
+
 
 def get_g_list_id(neighs_t, graph_dict):
     g_id_dict = {}
@@ -169,6 +187,7 @@ def get_g_list_id(neighs_t, graph_dict):
         idx += 1
     return g_list, g_id_dict
 
+
 def get_node_ids_to_g_id(s_hist_sorted, s_hist_t_sorted, s_tem, g_list, g_id_dict):
     node_ids_graph = []
     len_s = []
@@ -180,9 +199,12 @@ def get_node_ids_to_g_id(s_hist_sorted, s_hist_t_sorted, s_tem, g_list, g_id_dic
             node_ids_graph.append(graph.ids[s_tem[i].item()] + graph.start_id)
     return node_ids_graph, len_s
 
+
 '''
 Get sorted s and r to make batch for RNN (sorted by length)
 '''
+
+
 def get_sorted_s_r_embed(s_hist, s, r, ent_embeds):
     s_hist_len = torch.LongTensor(list(map(len, s_hist))).cuda()
     s_len, s_idx = s_hist_len.sort(0, descending=True)
@@ -205,6 +227,7 @@ def get_sorted_s_r_embed(s_hist, s, r, ent_embeds):
     embeds = ent_embeds[torch.LongTensor(flat_s).cuda()]
     embeds_split = torch.split(embeds, len_s)
     return s_len_non_zero, s_tem, r_tem, embeds, len_s, embeds_split
+
 
 def get_sorted_s_r_embed_rgcn(s_hist_data, s, r, ent_embeds, graph_dict, global_emb):
     s_hist = s_hist_data[0]
@@ -234,7 +257,7 @@ def get_sorted_s_r_embed_rgcn(s_hist_data, s, r, ent_embeds, graph_dict, global_
     node_ids_graph, len_s = get_node_ids_to_g_id(s_hist_sorted, s_hist_t_sorted, s_tem, g_list, g_id_dict)
 
     idx = torch.cuda.current_device()
-    g_list = [g.to(torch.device('cuda:'+str(idx))) for g in g_list]  
+    g_list = [g.to(torch.device('cuda:' + str(idx))) for g in g_list]
     batched_graph = dgl.batch(g_list)
     batched_graph.ndata['h'] = ent_embeds[batched_graph.ndata['id']].view(-1, ent_embeds.shape[1])
 
@@ -243,12 +266,13 @@ def get_sorted_s_r_embed_rgcn(s_hist_data, s, r, ent_embeds, graph_dict, global_
 
     return s_len_non_zero, s_tem, r_tem, batched_graph, node_ids_graph, global_emb_list
 
+
 def get_s_r_embed_rgcn(s_hist_data, s, r, ent_embeds, graph_dict, global_emb):
     s_hist = s_hist_data[0]
     s_hist_t = s_hist_data[1]
     s_hist_len = torch.LongTensor(list(map(len, s_hist))).cuda()
 
-    s_idx = torch.arange(0,len(s_hist_len))
+    s_idx = torch.arange(0, len(s_hist_len))
     s_len = s_hist_len
     num_non_zero = len(torch.nonzero(s_len))
     s_len_non_zero = s_len[:num_non_zero]
@@ -273,7 +297,7 @@ def get_s_r_embed_rgcn(s_hist_data, s, r, ent_embeds, graph_dict, global_emb):
     node_ids_graph, len_s = get_node_ids_to_g_id(s_hist_sorted, s_hist_t_sorted, s_tem, g_list, g_id_dict)
 
     idx = torch.cuda.current_device()
-    g_list = [g.to(torch.device('cuda:'+str(idx))) for g in g_list]  
+    g_list = [g.to(torch.device('cuda:' + str(idx))) for g in g_list]
     batched_graph = dgl.batch(g_list)
     batched_graph.ndata['h'] = ent_embeds[batched_graph.ndata['id']].view(-1, ent_embeds.shape[1])
 
@@ -288,6 +312,7 @@ def soft_cross_entropy(pred, soft_targets):
     logsoftmax = torch.nn.LogSoftmax()
     pred = pred.type('torch.DoubleTensor').cuda()
     return torch.mean(torch.sum(- soft_targets * logsoftmax(pred), 1))
+
 
 def get_true_distribution(train_data, num_s):
     true_s = np.zeros(num_s)
@@ -304,7 +329,7 @@ def get_true_distribution(train_data, num_s):
         if current_t != t:
 
             true_s = true_s / np.sum(true_s)
-            true_o = true_o /np.sum(true_o)
+            true_o = true_o / np.sum(true_o)
 
             if true_prob_s is None:
                 true_prob_s = true_s.reshape(1, num_s)
@@ -316,7 +341,6 @@ def get_true_distribution(train_data, num_s):
             true_s = np.zeros(num_s)
             true_o = np.zeros(num_s)
             current_t = t
-
 
     true_prob_s = np.concatenate((true_prob_s, true_s.reshape(1, num_s)), axis=0)
     true_prob_o = np.concatenate((true_prob_o, true_o.reshape(1, num_s)), axis=0)

@@ -33,6 +33,7 @@ class TransformerHidden(nn.Module):
         self.nhead = nhead
         self.target_size = target_size
         self.linear = nn.Linear(d_model, target_size)
+<<<<<<< HEAD
         # self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
         # self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
         self.transformer = nn.Transformer(d_model=d_model,nhead=nhead, num_encoder_layers=12)
@@ -40,6 +41,14 @@ class TransformerHidden(nn.Module):
     def forward(self, src):
         target_list = []
         all_tensor = self.transformer(src, src)
+=======
+        self.encoder_layer = nn.TransformerEncoderLayer(d_model=d_model, nhead=nhead)
+        self.transformer_encoder = nn.TransformerEncoder(self.encoder_layer, num_layers=6)
+
+    def forward(self, src):
+        target_list = []
+        all_tensor = self.transformer_encoder(src)
+>>>>>>> 71f917b1fef5524c476746464d43b14f35f21cdb
 
         for i in range(src.shape[0]):
             target_vector = all_tensor[i][-1]
@@ -524,3 +533,4 @@ class RENet(nn.Module):
 
                     s_his_cache = torch.cat((s_his_cache, forward), dim=0)
         return s_his_cache
+
