@@ -425,7 +425,7 @@ class RENet(nn.Module):
             inp, _ = self.aggregator.predict((s_history, s_history_t), s, r, ent_embed,
                                              self.rel_embeds[:self.num_rels], self.graph_dict, self.global_emb,
                                              reverse=False)
-            tt, s_h = self.transformer_hidden(inp.view(1, len(s_history), 4 * self.h_dim))
+            s_h = self.transformer_hidden(inp.view(1, len(s_history), 4 * self.h_dim))
             s_h = s_h.squeeze()
 
         if len(o_hist[0]) == 0 or len(self.o_hist_test[o]) == 0:
@@ -438,7 +438,7 @@ class RENet(nn.Module):
                                              self.rel_embeds[self.num_rels:], self.graph_dict, self.global_emb,
                                              reverse=True)
 
-            tt, o_h = self.transformer_hidden(inp.view(1, len(o_history), 4 * self.h_dim))
+            o_h = self.transformer_hidden(inp.view(1, len(o_history), 4 * self.h_dim))
             o_h = o_h.squeeze()
 
         ob_pred = self.linear(torch.cat((ent_embed[s], s_h, self.rel_embeds[:self.num_rels][r]), dim=0))
