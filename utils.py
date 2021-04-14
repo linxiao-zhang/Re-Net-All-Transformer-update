@@ -12,12 +12,20 @@ def get_total_number(inPath, fileName):
             return int(line_split[0]), int(line_split[1])
 
 
-def get_toatal_entity(inPath, fileName):
+def get_total_entity(inPath, fileName):
     entity_list = []
     with open(os.path.join(inPath, fileName), 'r') as fr:
         for line in fr:
             entity_list.append(line.split('\t')[0])
     return entity_list
+
+
+def get_total_relation(inPath, fileName):
+    relation_list = []
+    with open(os.path.join(inPath, fileName), 'r') as fr:
+        for line in fr:
+            relation_list.append(line.split('\t')[0])
+    return relation_list
 
 
 def load_quadruples(inPath, fileName, fileName2=None, fileName3=None):

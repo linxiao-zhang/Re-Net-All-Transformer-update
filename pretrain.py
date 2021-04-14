@@ -27,7 +27,7 @@ BERT_SERVER = {
 def train(args):
     # load data
     num_nodes, num_rels = utils.get_total_number('./data/' + args.dataset, 'stat.txt')
-    entity_list = utils.get_toatal_entity('./data/' + args.dataset, 'entity2id.txt')
+    entity_list = utils.get_total_entity('./data/' + args.dataset, 'entity2id.txt')
     bc = BertClient(**BERT_SERVER)
     vector_list = bc.encode(entity_list)
     entity_tensor = torch.Tensor(vector_list).cuda()
@@ -58,8 +58,7 @@ def train(args):
         # model_graph_file_backup = 'models/' + args.dataset + 'rgcn_graph_backup.pth'
 
     print("start training...")
-    model = RENet_global(vector_list,
-                         num_nodes,
+    model = RENet_global(num_nodes,
                          args.n_hidden,
                          num_rels,
                          dropout=args.dropout,
