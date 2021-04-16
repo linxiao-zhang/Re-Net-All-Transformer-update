@@ -284,11 +284,11 @@ class RENet(nn.Module):
                 s_h = torch.zeros(len(s), self.h_dim).cuda()
                 s_q = torch.zeros(len(s), self.h_dim).cuda()
             else:
-                tt, s_h = self.encoder(s_packed_input)
+                s_h = self.transformer_hidden(s_packed_input)
                 s_h = s_h.squeeze()
                 s_h = torch.cat((s_h, torch.zeros(len(s) - len(s_h), self.h_dim).cuda()), dim=0)
                 ###### Relations
-                tt, s_q = self.transformer_hidden(s_packed_input_r)
+                s_q = self.transformer_hidden_r(s_packed_input_r)
                 s_q = s_q.squeeze()
 
         ob_pred = self.linear(torch.cat((ent_embed[s], s_h, rel_embeds), dim=1))
@@ -348,7 +348,7 @@ class RENet(nn.Module):
                 self.s_his_cache[s] = self.update_cache(self.s_his_cache[s], rr, o_s.view(-1, 1))
                 self.s_his_cache_t[s] = self.latest_time.item()
 
-            _, ob, prob_ob = global_model.predict(t, ent_embed, self.graph_dict, subject=False)
+            _, ob, prob_ob = global_model.predict( ent_embed, t,self.graph_dict, subject=False)
             prob_ob = torch.softmax(ob.view(-1), dim=0)
             m = torch.distributions.categorical.Categorical(prob_ob)
             objects = m.sample(torch.Size([self.num_k]))

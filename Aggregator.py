@@ -239,7 +239,7 @@ class RGCNAggregator(nn.Module):
                                                                            s_len_non_zero,
                                                                            batch_first=True)
 
-        return s_packed_input, s_packed_input_r
+        return s_embed_seq_tensor, s_embed_seq_tensor_r
 
     def predict(self, s_history, s, r, ent_embeds, rel_embeds, graph_dict, global_emb, reverse):
         s_hist = s_history[0]
