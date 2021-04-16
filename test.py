@@ -1,16 +1,34 @@
 import argparse
 import numpy as np
 import torch
+from bert_serving.client import BertClient
+
 import utils
 import os
 from model import RENet
 from global_model import RENet_global
 import pickle
 
+BERT_SERVER = {
+    "ip": "wx.ringdata.net",  # 运行bert-as-service服务端的服务器IP，建议按照之前的文档部署GPU服务,
+    "port": 15555,
+    "port_out": 15556
+    # "timeout": 1000000000
+}
+
 
 def test(args):
     # load data
     num_nodes, num_rels = utils.get_total_number('./data/' + args.dataset, 'stat.txt')
+    entity_list = utils.get_total_entity('./data/' + args.dataset, 'entity2id.txt')
+    relation_list = utils.get_total_relation('./data/' + args.dataset, 'relation2id.txt')
+
+    bc = BertClient(**BERT_SERVER)
+    entity_vector_list = bc.encode(entity_list)
+    entity_tensor = torch.Tensor(entity_vector_list).cuda()
+
+    relation_vector_list = bc.encode(relation_list)
+    relation_tensor = torch.Tensor(relation_vector_list).cuda()
     if args.dataset == 'icews_know':
         train_data, train_times = utils.load_quadruples('./data/' + args.dataset, 'train.txt')
         valid_data, valid_times = utils.load_quadruples('./data/' + args.dataset, 'test.txt')
@@ -120,10 +138,11 @@ def test(args):
         with torch.no_grad():
             # Filtered metric
             if args.raw:
-                ranks_filter, loss = model.evaluate(batch_data, (s_hist, s_hist_t), (o_hist, o_hist_t),
+                ranks_filter, loss = model.evaluate(entity_tensor, batch_data, (s_hist, s_hist_t), (o_hist, o_hist_t),
                                                     global_model)
             else:
-                ranks_filter, loss = model.evaluate_filter(batch_data, (s_hist, s_hist_t), (o_hist, o_hist_t),
+                ranks_filter, loss = model.evaluate_filter(entity_tensor, batch_data, (s_hist, s_hist_t),
+                                                           (o_hist, o_hist_t),
                                                            global_model, total_data)
 
             total_ranks_filter = np.concatenate((total_ranks_filter, ranks_filter))
